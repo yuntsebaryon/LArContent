@@ -87,6 +87,11 @@ else()
     link_libraries(${PandoraSDK_LIBRARIES})
     add_definitions(${PandoraSDK_DEFINITIONS})
 
+    find_package(ROOT 5.26.00 REQUIRED COMPONENTS Eve Geom RGL EG)
+    include_directories(${ROOT_INCLUDE_DIRS})
+    link_libraries(${ROOT_LIBRARIES} ${ROOT_COMPONENT_LIBRARIES})
+    add_definitions(${ROOT_DEFINITIONS})
+
     if(PANDORA_MONITORING)
         find_package(PandoraMonitoring 03.00.00 REQUIRED)
         include_directories(${PandoraMonitoring_INCLUDE_DIRS})

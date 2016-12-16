@@ -44,11 +44,38 @@ public:
 
     /**
      *  @brief  Get the additional property string
+     * 
+     *  @return the additional property string
      */
     const std::string &GetAdditionalProperty() const;
 
+    /**
+     *  @brief  Get the shower length from 3d shower fit
+     * 
+     *  @return the shower length from 3d shower fit
+     */
+    float GetShowerLength() const;
+    
+    /**
+     *  @brief  Get the shower min layer position from 3d shower fit
+     * 
+     *  @return the shower min layer position from 3d shower fit
+     */
+    const pandora::CartesianVector &GetShowerMinLayerPosition() const;
+
+    /**
+     *  @brief  Get the shower max layer position from 3d shower fit
+     * 
+     *  @return the shower max layer position from 3d shower fit
+     */
+    const pandora::CartesianVector &GetShowerMaxLayerPosition() const;
+
 private:
-    std::string     m_additionalProperty;       ///< The additional property string
+    std::string                 m_additionalProperty;       ///< The additional property string
+
+    float                       m_showerLength;             ///< Dummy property, shower length from 3d shower fit
+    pandora::CartesianVector    m_showerMinLayerPosition;   ///< Dummy property, shower min layer position from 3d shower fit
+    pandora::CartesianVector    m_showerMaxLayerPosition;   ///< Dummy property, shower max layer position from 3d shower fit
 };
 
 //------------------------------------------------------------------------------------------------------------------------------------------
@@ -96,7 +123,10 @@ public:
 
 inline LArShowerPfo::LArShowerPfo(const LArShowerPfoParameters &parameters) :
     object_creation::ParticleFlowObject::Object(parameters),
-    m_additionalProperty(parameters.m_additionalProperty)
+    m_additionalProperty(parameters.m_additionalProperty),
+    m_showerLength(0),
+    m_showerMinLayerPosition(0.f, 0.f, 0.f),
+    m_showerMaxLayerPosition(0.f, 0.f, 0.f)
 {
 }
 

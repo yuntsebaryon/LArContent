@@ -9,8 +9,11 @@
 #include "Pandora/AlgorithmHeaders.h"
 
 #include "larpandoracontent/LArHelpers/LArClusterHelper.h"
+#include "larpandoracontent/LArHelpers/LArGeometryHelper.h"
 #include "larpandoracontent/LArHelpers/LArPfoHelper.h"
+
 #include "larpandoracontent/LArObjects/LArShowerPfo.h"
+#include "larpandoracontent/LArObjects/LArThreeDSlidingFitResult.h"
 
 #include "larpandoracontent/LArCustomParticles/ShowerParticleBuildingAlgorithm.h"
 
@@ -104,7 +107,38 @@ void ShowerParticleBuildingAlgorithm::CreatePfo(const ParticleFlowObject *const 
         pfoParameters.m_mass = PdgTable::GetParticleMass(pfoParameters.m_particleId.Get());
         pfoParameters.m_energy = 0.f;
         pfoParameters.m_momentum = pInputPfo->GetMomentum();
-        pfoParameters.m_additionalProperty = "HelloWorld";
+
+        pfoParameters.m_showerLength = 0.f; // DUMMY
+        pfoParameters.m_showerMinLayerPosition = CartesianVector(0.f, 0.f, 0.f); // DUMMY
+        pfoParameters.m_showerMaxLayerPosition = CartesianVector(0.f, 0.f, 0.f); // DUMMY
+
+        ClusterList threeDClusterList;
+        LArPfoHelper::GetThreeDClusterList(pInputPfo, threeDClusterList);
+
+        if (!threeDClusterList.empty())
+        {
+            const Cluster *const pThreeDCluster(threeDClusterList.front());
+
+            const unsigned int layerHalfWindow(20); // TODO, read via xml
+            const float layerPitch(LArGeometryHelper::GetWireZPitch(this->GetPandora()));
+
+            try
+            {
+                const ThreeDSlidingFitResult threeDFitResult(pThreeDCluster, layerHalfWindow, layerPitch);
+
+                const CartesianVector &globalMinLayerPosition(threeDFitResult.GetGlobalMinLayerPosition());
+                const CartesianVector &globalMaxLayerPosition(threeDFitResult.GetGlobalMaxLayerPosition());
+
+                pfoParameters.m_showerLength = ((globalMaxLayerPosition - globalMinLayerPosition).GetMagnitude());
+                pfoParameters.m_showerMinLayerPosition = globalMinLayerPosition;
+                pfoParameters.m_showerMaxLayerPosition = globalMaxLayerPosition;
+
+                std::cout << "ShowerLength " << pfoParameters.m_showerLength.Get() << std::endl;
+            }
+            catch (const StatusCodeException &)
+            {
+            }
+        }
 
         PANDORA_THROW_RESULT_IF(STATUS_CODE_SUCCESS, !=, PandoraContentApi::ParticleFlowObject::Create(*this, pfoParameters, pOutputPfo,
             pfoFactory));

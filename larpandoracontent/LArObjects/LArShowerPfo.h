@@ -24,9 +24,17 @@ namespace lar_content
 class LArShowerPfoParameters : public object_creation::ParticleFlowObject::Parameters
 {
 public:
-    pandora::InputFloat             m_showerLength;             ///< Dummy property, shower length from 3d shower fit
-    pandora::InputCartesianVector   m_showerMinLayerPosition;   ///< Dummy property, shower min layer position from 3d shower fit
-    pandora::InputCartesianVector   m_showerMaxLayerPosition;   ///< Dummy property, shower max layer position from 3d shower fit
+    pandora::InputCartesianVector   m_showerLength;             ///< Shower length and widths from 3d shower fit
+    pandora::InputCartesianVector   m_showerMinLayerPosition;   ///< Shower min layer position from 3d shower fit
+    pandora::InputCartesianVector   m_showerMaxLayerPosition;   ///< Shower max layer position from 3d shower fit
+    pandora::InputCartesianVector   m_showerCentroid;           ///< Shower centroid from 3d shower fit
+    pandora::InputCartesianVector   m_showerPositionSigmas;     ///< Shower position standard deviation from 3d shower fit
+    pandora::InputFloat             m_showerOpeningAngle;       ///< Shower opening angle
+    pandora::InputCartesianVector   m_showerDirection;          ///< Shower direction, also the primary eigen vector
+    pandora::InputCartesianVector   m_showerSecondaryVector;    ///< Shower secondary eigen vector
+    pandora::InputCartesianVector   m_showerTertiaryVector;     ///< Shower teriary eigen vector
+    pandora::InputCartesianVector   m_showerEigenValues;        ///< Shower eigenvalues from 3d PCA
+    pandora::InputCartesianVector   m_showerVertex;             ///< Shower starting point
 };
 
 //------------------------------------------------------------------------------------------------------------------------------------------
@@ -45,11 +53,11 @@ public:
     LArShowerPfo(const LArShowerPfoParameters &parameters);
 
     /**
-     *  @brief  Get the shower length from 3d shower fit
+     *  @brief  Get the shower length and width from 3d shower fit
      * 
-     *  @return the shower length from 3d shower fit
+     *  @return the shower length and width from 3d shower fit
      */
-    float GetShowerLength() const;
+    const pandora::CartesianVector &GetShowerLength() const;
     
     /**
      *  @brief  Get the shower min layer position from 3d shower fit
@@ -65,10 +73,74 @@ public:
      */
     const pandora::CartesianVector &GetShowerMaxLayerPosition() const;
 
+    /**
+     *  @brief  Get the shower centroid from the 3d shower fit
+     *
+     *  @return the shower centroid from the 3d shower fit
+     */
+    const pandora::CartesianVector &GetShowerCentroid() const;
+
+    /**
+     *  @brief  Get the standard deviation of a shower position from the 3d shower fit
+     *
+     *  @return the standard deviation of a shower position from the 3d shower fit
+     */
+    const pandora::CartesianVector &GetShowerPositionSigmas() const;
+
+    /**
+     *  @brief  Get the shower opening angle from 3d shower fit
+     *
+     *  @return the shower opening angle from 3d shower fit
+     */
+    float GetShowerOpeningAngle() const;
+
+    /**
+     *  @brief  Get the shower direction, also the primary eigen vector from 3d shower fit
+     *
+     *  @return the shower direction, also the primary eigen vector from 3d shower fit
+     */
+    const pandora::CartesianVector &GetShowerDirection() const;
+
+    /**
+     *  @brief  Get the shower secondary eigen vector from 3d shower fit
+     *
+     *  @return the shower secondary eigen vector from 3d shower fit
+     */
+    const pandora::CartesianVector &GetShowerSecondaryVector() const;
+
+    /**
+     *  @brief  Get the shower tertiary eigen vector from 3d shower fit
+     *
+     *  @return the shower tertiary eigen vector from 3d shower fit
+     */
+    const pandora::CartesianVector &GetShowerTertiaryVector() const;
+
+    /**
+     *  @brief  Get the shower eigen values from 3d PCA
+     *
+     *  @return the shower eigen values from 3d PCA
+     */
+    const pandora::CartesianVector &GetShowerEigenValues() const;
+
+    /**
+     *  @brief  Get the shower starting point from 3d shower fit
+     *
+     *  @return the shower starting point from 3d shower fit
+     */
+    const pandora::CartesianVector &GetShowerVertex() const;
+
 private:
-    float                       m_showerLength;             ///< Dummy property, shower length from 3d shower fit
-    pandora::CartesianVector    m_showerMinLayerPosition;   ///< Dummy property, shower min layer position from 3d shower fit
-    pandora::CartesianVector    m_showerMaxLayerPosition;   ///< Dummy property, shower max layer position from 3d shower fit
+    pandora::CartesianVector    m_showerLength;             ///< Shower length and widths from 3d shower fit
+    pandora::CartesianVector    m_showerMinLayerPosition;   ///< Shower min layer position from 3d shower fit
+    pandora::CartesianVector    m_showerMaxLayerPosition;   ///< Shower max layer position from 3d shower fit
+    pandora::CartesianVector    m_showerCentroid;           ///< Shower centroid from 3d shower fit
+    pandora::CartesianVector    m_showerPositionSigmas;     ///< Shower position standard deviation from 3d shower fit
+    float                       m_showerOpeningAngle;       ///< Shower opening angle
+    pandora::CartesianVector    m_showerDirection;          ///< Shower direction, primary eigen vector
+    pandora::CartesianVector    m_showerSecondaryVector;    ///< Shower secondary eigen vector
+    pandora::CartesianVector    m_showerTertiaryVector;     ///< Shower tertiary eigen vector
+    pandora::CartesianVector    m_showerEigenValues;        ///< Shower eigenvalues from 3d PCA
+    pandora::CartesianVector    m_showerVertex;             ///< Shower starting point
 };
 
 //------------------------------------------------------------------------------------------------------------------------------------------
@@ -118,13 +190,21 @@ inline LArShowerPfo::LArShowerPfo(const LArShowerPfoParameters &parameters) :
     object_creation::ParticleFlowObject::Object(parameters),
     m_showerLength(parameters.m_showerLength.Get()),
     m_showerMinLayerPosition(parameters.m_showerMinLayerPosition.Get()),
-    m_showerMaxLayerPosition(parameters.m_showerMaxLayerPosition.Get())
+    m_showerMaxLayerPosition(parameters.m_showerMaxLayerPosition.Get()),
+    m_showerCentroid(parameters.m_showerCentroid.Get()),
+    m_showerPositionSigmas(parameters.m_showerPositionSigmas.Get()),
+    m_showerOpeningAngle(parameters.m_showerOpeningAngle.Get()),
+    m_showerDirection(parameters.m_showerDirection.Get()),
+    m_showerSecondaryVector(parameters.m_showerSecondaryVector.Get()),
+    m_showerTertiaryVector(parameters.m_showerTertiaryVector.Get()),
+    m_showerEigenValues(parameters.m_showerEigenValues.Get()),
+    m_showerVertex(parameters.m_showerVertex.Get())
 {
 }
 
 //------------------------------------------------------------------------------------------------------------------------------------------
 
-inline float LArShowerPfo::GetShowerLength() const
+inline const pandora::CartesianVector &LArShowerPfo::GetShowerLength() const
 {
     return m_showerLength;
 }
@@ -144,6 +224,61 @@ inline const pandora::CartesianVector &LArShowerPfo::GetShowerMaxLayerPosition()
 }
 
 //------------------------------------------------------------------------------------------------------------------------------------------
+
+inline const pandora::CartesianVector &LArShowerPfo::GetShowerCentroid() const
+{
+    return m_showerCentroid;
+}
+
+//------------------------------------------------------------------------------------------------------------------------------------------
+
+inline const pandora::CartesianVector &LArShowerPfo::GetShowerPositionSigmas() const
+{
+    return m_showerPositionSigmas;
+}
+
+//------------------------------------------------------------------------------------------------------------------------------------------
+
+inline float LArShowerPfo::GetShowerOpeningAngle() const
+{
+    return m_showerOpeningAngle;
+}
+
+//------------------------------------------------------------------------------------------------------------------------------------------
+
+inline const pandora::CartesianVector &LArShowerPfo::GetShowerDirection() const
+{
+    return m_showerDirection;
+}
+
+//------------------------------------------------------------------------------------------------------------------------------------------
+
+inline const pandora::CartesianVector &LArShowerPfo::GetShowerSecondaryVector() const
+{
+    return m_showerSecondaryVector;
+}
+
+//------------------------------------------------------------------------------------------------------------------------------------------
+
+inline const pandora::CartesianVector &LArShowerPfo::GetShowerTertiaryVector() const
+{
+    return m_showerTertiaryVector;
+}
+
+//------------------------------------------------------------------------------------------------------------------------------------------
+
+inline const pandora::CartesianVector &LArShowerPfo::GetShowerEigenValues() const
+{
+    return m_showerEigenValues;
+}
+
+//------------------------------------------------------------------------------------------------------------------------------------------
+
+inline const pandora::CartesianVector &LArShowerPfo::GetShowerVertex() const
+{
+    return m_showerVertex;
+}
+
 //------------------------------------------------------------------------------------------------------------------------------------------
 
 inline LArShowerPfoFactory::Parameters *LArShowerPfoFactory::NewParameters() const

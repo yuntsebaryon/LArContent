@@ -40,6 +40,12 @@ private:
 
     void CreatePfo(const pandora::ParticleFlowObject *const pInputPfo, const pandora::ParticleFlowObject*& pOutputPfo) const;
 
+    float PCANormalization( const pandora::CartesianVector Sigmas ) const;
+
+    void ShowerLength( const pandora::CartesianVector EigenValues, pandora::CartesianVector &ShowerLength ) const;
+
+    float OpeningAngle( const pandora::CartesianVector principal, const pandora::CartesianVector secondary, const pandora::CartesianVector EigenValues ) const;
+
     bool            m_cosmicMode;             ///<
 };
 

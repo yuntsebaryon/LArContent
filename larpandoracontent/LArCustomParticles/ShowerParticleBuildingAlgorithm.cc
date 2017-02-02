@@ -207,7 +207,7 @@ void ShowerParticleBuildingAlgorithm::RunPCA( const pandora::CaloHitList& threeD
            xiyi,  yi2, yizi,
            xizi, yizi,  zi2;
 
-    if ( weightSum == 0. ) {
+    if ( weightSum < std::numeric_limits< double >::epsilon() ) {
         std::cout << "The total weight of three dimensional hits is 0!" << std::endl;
         throw StatusCodeException( STATUS_CODE_INVALID_PARAMETER );
     }
@@ -251,35 +251,35 @@ void ShowerParticleBuildingAlgorithm::RunPCA( const pandora::CaloHitList& threeD
 pandora::CartesianVector ShowerParticleBuildingAlgorithm::ShowerLength( const pandora::CartesianVector& EigenValues ) const
 {
     float sl[3] = { 0., 0., 0. };
-    if ( EigenValues.GetX() > 0. ) sl[0] = 6.*std::sqrt( EigenValues.GetX() );
+    if ( EigenValues.GetX() > std::numeric_limits< float >::epsilon() ) sl[0] = 6.*std::sqrt( EigenValues.GetX() );
     else {
         std::cout << "The principal eigenvalue is equal to or less than 0." << std::endl;
         throw StatusCodeException( STATUS_CODE_INVALID_PARAMETER );
     }
-    if ( EigenValues.GetY() > 0. ) sl[1] = 6.*std::sqrt( EigenValues.GetY() );
-    if ( EigenValues.GetZ() > 0. ) sl[2] = 6.*std::sqrt( EigenValues.GetZ() );
+    if ( EigenValues.GetY() > std::numeric_limits< float >::epsilon() ) sl[1] = 6.*std::sqrt( EigenValues.GetY() );
+    if ( EigenValues.GetZ() > std::numeric_limits< float >::epsilon() ) sl[2] = 6.*std::sqrt( EigenValues.GetZ() );
     return { sl[0], sl[1], sl[2] };
 }
 
 //------------------------------------------------------------------------------------------------------------------------------------------
 float ShowerParticleBuildingAlgorithm::OpeningAngle( const pandora::CartesianVector& principal, const pandora::CartesianVector& secondary, const pandora::CartesianVector& EigenValues ) const
 {
-    if ( principal.GetMagnitude() == 0. ) {
+    if ( principal.GetMagnitude() < std::numeric_limits< float >::epsilon() ) {
         std::cout << "The principal eigenvector is 0." << std::endl;
         throw StatusCodeException( STATUS_CODE_INVALID_PARAMETER );
-    } else if ( secondary.GetMagnitude() == 0. ) return 0.;
+    } else if ( secondary.GetMagnitude() < std::numeric_limits< float >::epsilon() ) return 0.;
 
     float cosTheta = principal.GetDotProduct( secondary ) / ( principal.GetMagnitude() * secondary.GetMagnitude() );
-    if ( cosTheta > 1. ) {
+    if ( cosTheta > 1. + std::numeric_limits< float >::epsilon() ) {
         std::cout << "cos(theta) between the principal and secondary eigenvectors is greater than 1." << std::endl;
         throw StatusCodeException( STATUS_CODE_INVALID_PARAMETER );
     }
 
     float sinTheta = std::sqrt( 1. - cosTheta* cosTheta );
-    if ( EigenValues.GetX() <= 0. ) {
+    if ( EigenValues.GetX() < std::numeric_limits< float >::epsilon() ) {
         std::cout << "The principal eigenvalue is equal to or less than 0." << std::endl;
         throw StatusCodeException( STATUS_CODE_INVALID_PARAMETER );
-    } else if ( EigenValues.GetY() < 0. ) return 0.;
+    } else if ( EigenValues.GetY() < std::numeric_limits< float >::epsilon() ) return 0.;
 
     return 2.* std::atan( std::sqrt( EigenValues.GetY() ) * sinTheta / std::sqrt( EigenValues.GetX() ) );
 }

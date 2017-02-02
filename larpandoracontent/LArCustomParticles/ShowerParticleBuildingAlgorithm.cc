@@ -119,11 +119,11 @@ void ShowerParticleBuildingAlgorithm::CreatePfo(const ParticleFlowObject *const 
             pfoFactory));
 
         const LArShowerPfo *const pLArPfo = dynamic_cast<const LArShowerPfo*>(pOutputPfo);
-        if (NULL == pLArPfo)
+        if ( pLArPfo == nullptr )
             throw StatusCodeException(STATUS_CODE_FAILURE);
 
         // Build a new vertex
-        const Vertex *pOutputVertex(NULL);
+        const Vertex *pOutputVertex = nullptr;
 
         PandoraContentApi::Vertex::Parameters vtxParameters;
         vtxParameters.m_position = pInputVertex->GetPosition();
@@ -151,8 +151,8 @@ void ShowerParticleBuildingAlgorithm::RunPCA( const pandora::CaloHitList& threeD
     // see what happens
 
     // Run through the CaloHitList and get the mean position of all the hits
-    double meanPos[] = { 0., 0., 0. };
-    int    numthreeDHitsInt(0);
+    double meanPos[3] = { 0., 0., 0. };
+    int    numthreeDHitsInt = 0;
 
     for (const CaloHit *const pCaloHit3D : threeDCaloHitList)
     {
@@ -174,20 +174,21 @@ void ShowerParticleBuildingAlgorithm::RunPCA( const pandora::CaloHitList& threeD
     Centroid = CartesianVector( meanPos[0], meanPos[1], meanPos[2] );
 
     // Define elements of our covariance matrix
-    double xi2(0.);
-    double xiyi(0.);
-    double xizi(0.0);
-    double yi2(0.0);
-    double yizi(0.0);
-    double zi2(0.);
-    double weightSum(0.);
+    double xi2 = 0.;
+    double xiyi = 0.;
+    double xizi = 0.;
+    double yi2 = 0.;
+    double yizi = 0.;
+    double zi2 = 0.;
+    double weightSum = 0.;
 
     for ( const CaloHit *const pCaloHit3D : threeDCaloHitList )
     {
-        double weight(1.);
-        double x = ( pCaloHit3D->GetPositionVector().GetX() - meanPos[0] ) * weight;
-        double y = ( pCaloHit3D->GetPositionVector().GetY() - meanPos[1] ) * weight;
-        double z = ( pCaloHit3D->GetPositionVector().GetZ() - meanPos[2] ) * weight;
+        double weight = 1.;
+        const auto& pos = pCaloHit3D->GetPositionVector();
+        double x = ( pos.GetX() - meanPos[0] ) * weight;
+        double y = ( pos.GetY() - meanPos[1] ) * weight;
+        double z = ( pos.GetZ() - meanPos[2] ) * weight;
 
         weightSum += weight*weight;
 
@@ -215,34 +216,32 @@ void ShowerParticleBuildingAlgorithm::RunPCA( const pandora::CaloHitList& threeD
 
     Eigen::SelfAdjointEigenSolver<Eigen::Matrix3f> eigenMat(sig);
 
-    if ( eigenMat.info() == Eigen::ComputationInfo::Success )
-    {
-        using eigenValColPair = std::pair<float,size_t>;
-        std::vector<eigenValColPair> eigenValColVec;
-
-        eigenValColVec.push_back(eigenValColPair(eigenMat.eigenvalues()(0),0));
-        eigenValColVec.push_back(eigenValColPair(eigenMat.eigenvalues()(1),1));
-        eigenValColVec.push_back(eigenValColPair(eigenMat.eigenvalues()(2),2));
-
-        std::sort( eigenValColVec.begin(), eigenValColVec.end(), [](const eigenValColPair& left, const eigenValColPair& right){return left.first > right.first;} );
-
-        // Now copy output
-        // Get the eigen values
-        EigenValues = CartesianVector( eigenValColVec[0].first, eigenValColVec[1].first, eigenValColVec[2].first );
-
-        // Grab the principle axes
-        Eigen::Matrix3f eigenVecs(eigenMat.eigenvectors());
-
-        for ( const auto& pair : eigenValColVec )
-        {
-            CartesianVector tempVec = CartesianVector( eigenVecs(0, pair.second), eigenVecs(1, pair.second), eigenVecs(2, pair.second) );
-            EigenVecs.push_back(tempVec);
-        }
-    }
-    else
+    if ( eigenMat.info() != Eigen::ComputationInfo::Success )
     {
         std::cout << "PCA decompose failure, number of three D hits = " << numthreeDHits << std::endl;
         throw StatusCodeException( STATUS_CODE_INVALID_PARAMETER );
+    }
+
+    using eigenValColPair = std::pair<float,size_t>;
+    std::vector<eigenValColPair> eigenValColVec;
+
+    auto const& resultEigenMat = eigenMat.eigenvalues(); 
+    eigenValColVec.emplace_back( resultEigenMat(0), 0 );
+    eigenValColVec.emplace_back( resultEigenMat(1), 1 );
+    eigenValColVec.emplace_back( resultEigenMat(2), 2 );
+
+    std::sort( eigenValColVec.begin(), eigenValColVec.end(), [](const eigenValColPair& left, const eigenValColPair& right){return left.first > right.first;} );
+
+    // Now copy output
+    // Get the eigen values
+    EigenValues = CartesianVector( eigenValColVec[0].first, eigenValColVec[1].first, eigenValColVec[2].first );
+
+    // Grab the principle axes
+    Eigen::Matrix3f eigenVecs(eigenMat.eigenvectors());
+
+    for ( const auto& pair : eigenValColVec )
+    {
+        EigenVecs.emplace_back( eigenVecs(0, pair.second), eigenVecs(1, pair.second), eigenVecs(2, pair.second) );
     }
 
     return;
@@ -251,7 +250,7 @@ void ShowerParticleBuildingAlgorithm::RunPCA( const pandora::CaloHitList& threeD
 //------------------------------------------------------------------------------------------------------------------------------------------
 pandora::CartesianVector ShowerParticleBuildingAlgorithm::ShowerLength( const pandora::CartesianVector& EigenValues ) const
 {
-    double sl[] = { 0., 0., 0. };
+    float sl[3] = { 0., 0., 0. };
     if ( EigenValues.GetX() > 0. ) sl[0] = 6.*std::sqrt( EigenValues.GetX() );
     else {
         std::cout << "The principal eigenvalue is equal to or less than 0." << std::endl;
@@ -259,8 +258,7 @@ pandora::CartesianVector ShowerParticleBuildingAlgorithm::ShowerLength( const pa
     }
     if ( EigenValues.GetY() > 0. ) sl[1] = 6.*std::sqrt( EigenValues.GetY() );
     if ( EigenValues.GetZ() > 0. ) sl[2] = 6.*std::sqrt( EigenValues.GetZ() );
-    CartesianVector sLength( sl[0], sl[1], sl[2] );
-    return sLength;
+    return { sl[0], sl[1], sl[2] };
 }
 
 //------------------------------------------------------------------------------------------------------------------------------------------
@@ -283,8 +281,7 @@ float ShowerParticleBuildingAlgorithm::OpeningAngle( const pandora::CartesianVec
         throw StatusCodeException( STATUS_CODE_INVALID_PARAMETER );
     } else if ( EigenValues.GetY() < 0. ) return 0.;
 
-    float openAngle = 2.* std::atan( std::sqrt( EigenValues.GetY() ) * sinTheta / std::sqrt( EigenValues.GetX() ) );
-    return openAngle;
+    return 2.* std::atan( std::sqrt( EigenValues.GetY() ) * sinTheta / std::sqrt( EigenValues.GetX() ) );
 }
 
 //------------------------------------------------------------------------------------------------------------------------------------------

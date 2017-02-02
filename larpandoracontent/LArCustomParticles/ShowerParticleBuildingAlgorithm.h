@@ -26,7 +26,7 @@ public:
      */
     ShowerParticleBuildingAlgorithm();
 
-    typedef std::vector< pandora::CartesianVector > EigenVectors;
+    using EigenVectors = std::vector< pandora::CartesianVector >;
 
     /**
      *  @brief  Factory class for instantiating algorithm

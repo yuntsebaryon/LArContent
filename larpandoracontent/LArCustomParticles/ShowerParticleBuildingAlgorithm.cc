@@ -17,7 +17,8 @@
 
 #include "larpandoracontent/LArCustomParticles/ShowerParticleBuildingAlgorithm.h"
 
-#include "TPrincipal.h"
+#include <Eigen/Dense>
+// #include "TPrincipal.h"
 
 using namespace pandora;
 
@@ -59,16 +60,6 @@ void ShowerParticleBuildingAlgorithm::CreatePfo(const ParticleFlowObject *const 
         pfoParameters.m_mass = PdgTable::GetParticleMass(pfoParameters.m_particleId.Get());
         pfoParameters.m_energy = 0.f;
         pfoParameters.m_momentum = pInputPfo->GetMomentum();
-
-        pfoParameters.m_showerLength = CartesianVector(0.f, 0.f, 0.f); // DUMMY
-        pfoParameters.m_showerMinLayerPosition = CartesianVector(0.f, 0.f, 0.f); // DUMMY
-        pfoParameters.m_showerMaxLayerPosition = CartesianVector(0.f, 0.f, 0.f); // DUMMY
-        pfoParameters.m_showerCentroid = CartesianVector(0.f, 0.f, 0.f);
-        pfoParameters.m_showerPositionSigmas = CartesianVector(0.f, 0.f, 0.f);
-        pfoParameters.m_showerOpeningAngle = 0.f;
-        pfoParameters.m_showerDirection = CartesianVector(0.f, 0.f, 0.f);
-        pfoParameters.m_showerSecondaryVector = CartesianVector(0.f, 0.f, 0.f);
-        pfoParameters.m_showerTertiaryVector = CartesianVector(0.f, 0.f, 0.f);
         pfoParameters.m_showerVertex = pInputVertex->GetPosition();
 
         ClusterList threeDClusterList;
@@ -84,49 +75,26 @@ void ShowerParticleBuildingAlgorithm::CreatePfo(const ParticleFlowObject *const 
 
             CaloHitList threeDCaloHitList; // Might be able to get through LArPfoHelper instead
             pThreeDCluster->GetOrderedCaloHitList().FillCaloHitList(threeDCaloHitList);
-            TPrincipal* principal = new TPrincipal( 3, "D" );
-
-            for (const CaloHit *const pCaloHit3D : threeDCaloHitList)
-            {
-                double data[3];
-                data[0] = pCaloHit3D->GetPositionVector().GetX();
-                data[1] = pCaloHit3D->GetPositionVector().GetY();
-                data[2] = pCaloHit3D->GetPositionVector().GetZ();
-                principal->AddRow( data );
-            }
-
-            // Check if there are mean values
-            if ( principal->GetMeanValues()->GetNrows() < 3 ) {
-                // Need to discuss with John for the exception
-                std::cerr << "Mean value issue!" << std::endl;
-            }
-
-            // Do the actual analysis
-            principal->MakePrincipals();
-
-            // Print out the result on
-            principal->Print();
+            CartesianVector Centroid( 0.f, 0.f, 0.f ), EigenValues( 0.f, 0.f, 0.f );
+            EigenVectors EigenVecs;
+            RunPCA( threeDCaloHitList, Centroid, EigenValues, EigenVecs );
 
             try {
-                pfoParameters.m_showerCentroid = CartesianVector( (*principal->GetMeanValues())[0], (*principal->GetMeanValues())[1], (*principal->GetMeanValues())[2] );
-                pfoParameters.m_showerPositionSigmas = CartesianVector( (*principal->GetSigmas())[0], (*principal->GetSigmas())[1], (*principal->GetSigmas())[2] );
-                pfoParameters.m_showerDirection = CartesianVector( (*principal->GetEigenVectors())[0][0], (*principal->GetEigenVectors())[1][0], (*principal->GetEigenVectors())[2][0] );
-                pfoParameters.m_showerSecondaryVector = CartesianVector( (*principal->GetEigenVectors())[0][1], (*principal->GetEigenVectors())[1][1], (*principal->GetEigenVectors())[2][1] );
-                pfoParameters.m_showerTertiaryVector = CartesianVector( (*principal->GetEigenVectors())[0][2], (*principal->GetEigenVectors())[1][2], (*principal->GetEigenVectors())[2][2] );
-                const CartesianVector eigenvalues( (*principal->GetEigenValues())[0], (*principal->GetEigenValues())[1], (*principal->GetEigenValues())[2] );
-                float norm = PCANormalization( pfoParameters.m_showerPositionSigmas.Get() );
-                pfoParameters.m_showerEigenValues = eigenvalues * norm;
-                CartesianVector sLength(0.f, 0.f, 0.f);
-                ShowerLength( pfoParameters.m_showerEigenValues.Get(), sLength );
-                pfoParameters.m_showerLength = sLength;
+                pfoParameters.m_showerCentroid = Centroid;
+                // pfoParameters.m_showerPositionSigmas;
+                pfoParameters.m_showerDirection = EigenVecs[0];
+                pfoParameters.m_showerSecondaryVector = EigenVecs[1];
+                pfoParameters.m_showerTertiaryVector = EigenVecs[2];
+                pfoParameters.m_showerEigenValues = EigenValues;
+                pfoParameters.m_showerLength = ShowerLength( pfoParameters.m_showerEigenValues.Get() );
                 pfoParameters.m_showerOpeningAngle = OpeningAngle( pfoParameters.m_showerDirection.Get(), pfoParameters.m_showerSecondaryVector.Get(), pfoParameters.m_showerEigenValues.Get() );
 
-            } catch (const StatusCodeException &statusCodeException) {
-                if (STATUS_CODE_FAILURE == statusCodeException.GetStatusCode())
+            } catch ( const StatusCodeException &statusCodeException ) {
+                if ( STATUS_CODE_FAILURE == statusCodeException.GetStatusCode() )
                     throw statusCodeException;
             }
 
-/*
+
             const unsigned int layerHalfWindow(20); // TODO, read via xml
             const float layerPitch(LArGeometryHelper::GetWireZPitch(this->GetPandora()));
 
@@ -137,15 +105,14 @@ void ShowerParticleBuildingAlgorithm::CreatePfo(const ParticleFlowObject *const 
                 const CartesianVector &globalMinLayerPosition(threeDFitResult.GetGlobalMinLayerPosition());
                 const CartesianVector &globalMaxLayerPosition(threeDFitResult.GetGlobalMaxLayerPosition());
 
-                pfoParameters.m_showerLength = ((globalMaxLayerPosition - globalMinLayerPosition).GetMagnitude());
                 pfoParameters.m_showerMinLayerPosition = globalMinLayerPosition;
                 pfoParameters.m_showerMaxLayerPosition = globalMaxLayerPosition;
-
-                std::cout << "ShowerLength " << pfoParameters.m_showerLength.Get() << std::endl;
             }
-            catch (const StatusCodeException &)
+            catch ( const StatusCodeException &statusCodeException )
             {
-            } */
+                if ( STATUS_CODE_FAILURE == statusCodeException.GetStatusCode() )
+                    throw statusCodeException;
+            }
         }
 
         PANDORA_THROW_RESULT_IF(STATUS_CODE_SUCCESS, !=, PandoraContentApi::ParticleFlowObject::Create(*this, pfoParameters, pOutputPfo,
@@ -174,24 +141,149 @@ void ShowerParticleBuildingAlgorithm::CreatePfo(const ParticleFlowObject *const 
 }
 
 //------------------------------------------------------------------------------------------------------------------------------------------
-float ShowerParticleBuildingAlgorithm::PCANormalization( const pandora::CartesianVector Sigmas ) const
+void ShowerParticleBuildingAlgorithm::RunPCA( const pandora::CaloHitList& threeDCaloHitList, pandora::CartesianVector& Centroid, pandora::CartesianVector& EigenValues, EigenVectors& EigenVecs ) const
 {
-    return Sigmas.GetX() * Sigmas.GetX() + Sigmas.GetY() * Sigmas.GetY() + Sigmas.GetZ() * Sigmas.GetZ();
-}
+    // The steps are:
+    // 1) do a mean normalization of the input vec points
+    // 2) compute the covariance matrix
+    // 3) run the SVD
+    // 4) extract the eigen vectors and values
+    // see what happens
 
-//------------------------------------------------------------------------------------------------------------------------------------------
-void ShowerParticleBuildingAlgorithm::ShowerLength( const pandora::CartesianVector EigenValues, pandora::CartesianVector &sLength ) const
-{
-    sLength.SetValues( 6.*sqrt( EigenValues.GetX()), 6.*sqrt( EigenValues.GetY()), 6.*sqrt( EigenValues.GetZ()) );
+    // Run through the CaloHitList and get the mean position of all the hits
+    double meanPos[] = { 0., 0., 0. };
+    int    numthreeDHitsInt(0);
+
+    for (const CaloHit *const pCaloHit3D : threeDCaloHitList)
+    {
+        meanPos[0] += pCaloHit3D->GetPositionVector().GetX();
+        meanPos[1] += pCaloHit3D->GetPositionVector().GetY();
+        meanPos[2] += pCaloHit3D->GetPositionVector().GetZ();
+        numthreeDHitsInt++;
+    }
+
+    if ( numthreeDHitsInt == 0 ) {
+        std::cout << "No three dimensional hit found!" << std::endl;
+        throw StatusCodeException( STATUS_CODE_NOT_FOUND );
+    }
+
+    double numthreeDHits = double( numthreeDHitsInt );
+    meanPos[0] /= numthreeDHits;
+    meanPos[1] /= numthreeDHits;
+    meanPos[2] /= numthreeDHits;
+    Centroid = CartesianVector( meanPos[0], meanPos[1], meanPos[2] );
+
+    // Define elements of our covariance matrix
+    double xi2(0.);
+    double xiyi(0.);
+    double xizi(0.0);
+    double yi2(0.0);
+    double yizi(0.0);
+    double zi2(0.);
+    double weightSum(0.);
+
+    for ( const CaloHit *const pCaloHit3D : threeDCaloHitList )
+    {
+        double weight(1.);
+        double x = ( pCaloHit3D->GetPositionVector().GetX() - meanPos[0] ) * weight;
+        double y = ( pCaloHit3D->GetPositionVector().GetY() - meanPos[1] ) * weight;
+        double z = ( pCaloHit3D->GetPositionVector().GetZ() - meanPos[2] ) * weight;
+
+        weightSum += weight*weight;
+
+        xi2  += x * x;
+        xiyi += x * y;
+        xizi += x * z;
+        yi2  += y * y;
+        yizi += y * z;
+        zi2  += z * z;
+    }
+
+    // Using Eigen package
+    Eigen::Matrix3f sig;
+
+    sig <<  xi2, xiyi, xizi,
+           xiyi,  yi2, yizi,
+           xizi, yizi,  zi2;
+
+    if ( weightSum == 0. ) {
+        std::cout << "The total weight of three dimensional hits is 0!" << std::endl;
+        throw StatusCodeException( STATUS_CODE_INVALID_PARAMETER );
+    }
+
+    sig *= 1./weightSum;
+
+    Eigen::SelfAdjointEigenSolver<Eigen::Matrix3f> eigenMat(sig);
+
+    if ( eigenMat.info() == Eigen::ComputationInfo::Success )
+    {
+        using eigenValColPair = std::pair<float,size_t>;
+        std::vector<eigenValColPair> eigenValColVec;
+
+        eigenValColVec.push_back(eigenValColPair(eigenMat.eigenvalues()(0),0));
+        eigenValColVec.push_back(eigenValColPair(eigenMat.eigenvalues()(1),1));
+        eigenValColVec.push_back(eigenValColPair(eigenMat.eigenvalues()(2),2));
+
+        std::sort( eigenValColVec.begin(), eigenValColVec.end(), [](const eigenValColPair& left, const eigenValColPair& right){return left.first > right.first;} );
+
+        // Now copy output
+        // Get the eigen values
+        EigenValues = CartesianVector( eigenValColVec[0].first, eigenValColVec[1].first, eigenValColVec[2].first );
+
+        // Grab the principle axes
+        Eigen::Matrix3f eigenVecs(eigenMat.eigenvectors());
+
+        for ( const auto& pair : eigenValColVec )
+        {
+            CartesianVector tempVec = CartesianVector( eigenVecs(0, pair.second), eigenVecs(1, pair.second), eigenVecs(2, pair.second) );
+            EigenVecs.push_back(tempVec);
+        }
+    }
+    else
+    {
+        std::cout << "PCA decompose failure, number of three D hits = " << numthreeDHits << std::endl;
+        throw StatusCodeException( STATUS_CODE_INVALID_PARAMETER );
+    }
+
     return;
 }
 
 //------------------------------------------------------------------------------------------------------------------------------------------
-float ShowerParticleBuildingAlgorithm::OpeningAngle( const pandora::CartesianVector principal, const pandora::CartesianVector secondary, const pandora::CartesianVector EigenValues ) const
+pandora::CartesianVector ShowerParticleBuildingAlgorithm::ShowerLength( const pandora::CartesianVector& EigenValues ) const
 {
+    double sl[] = { 0., 0., 0. };
+    if ( EigenValues.GetX() > 0. ) sl[0] = 6.*std::sqrt( EigenValues.GetX() );
+    else {
+        std::cout << "The principal eigenvalue is equal to or less than 0." << std::endl;
+        throw StatusCodeException( STATUS_CODE_INVALID_PARAMETER );
+    }
+    if ( EigenValues.GetY() > 0. ) sl[1] = 6.*std::sqrt( EigenValues.GetY() );
+    if ( EigenValues.GetZ() > 0. ) sl[2] = 6.*std::sqrt( EigenValues.GetZ() );
+    CartesianVector sLength( sl[0], sl[1], sl[2] );
+    return sLength;
+}
+
+//------------------------------------------------------------------------------------------------------------------------------------------
+float ShowerParticleBuildingAlgorithm::OpeningAngle( const pandora::CartesianVector& principal, const pandora::CartesianVector& secondary, const pandora::CartesianVector& EigenValues ) const
+{
+    if ( principal.GetMagnitude() == 0. ) {
+        std::cout << "The principal eigenvector is 0." << std::endl;
+        throw StatusCodeException( STATUS_CODE_INVALID_PARAMETER );
+    } else if ( secondary.GetMagnitude() == 0. ) return 0.;
+
     float cosTheta = principal.GetDotProduct( secondary ) / ( principal.GetMagnitude() * secondary.GetMagnitude() );
-    float sinTheta = sqrt( 1. - cosTheta* cosTheta );
-    float openAngle = 2.* atan( sqrt( EigenValues.GetY() ) * sinTheta / sqrt( EigenValues.GetX() ) );
+    if ( cosTheta > 1. ) {
+        std::cout << "cos(theta) between the principal and secondary eigenvectors is greater than 1." << std::endl;
+        throw StatusCodeException( STATUS_CODE_INVALID_PARAMETER );
+    }
+
+    float sinTheta = std::sqrt( 1. - cosTheta* cosTheta );
+    if ( EigenValues.GetX() <= 0. ) {
+        std::cout << "The principal eigenvalue is equal to or less than 0." << std::endl;
+        throw StatusCodeException( STATUS_CODE_INVALID_PARAMETER );
+    } else if ( EigenValues.GetY() < 0. ) return 0.;
+
+    float openAngle = 2.* std::atan( std::sqrt( EigenValues.GetY() ) * sinTheta / std::sqrt( EigenValues.GetX() ) );
     return openAngle;
 }
 

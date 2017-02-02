@@ -26,6 +26,8 @@ public:
      */
     ShowerParticleBuildingAlgorithm();
 
+    typedef std::vector< pandora::CartesianVector > EigenVectors;
+
     /**
      *  @brief  Factory class for instantiating algorithm
      */
@@ -40,11 +42,11 @@ private:
 
     void CreatePfo(const pandora::ParticleFlowObject *const pInputPfo, const pandora::ParticleFlowObject*& pOutputPfo) const;
 
-    float PCANormalization( const pandora::CartesianVector Sigmas ) const;
+    void RunPCA( const pandora::CaloHitList& threeDCaloHitList, pandora::CartesianVector& Centroid, pandora::CartesianVector& EigenValues, EigenVectors& EigenVecs ) const;
 
-    void ShowerLength( const pandora::CartesianVector EigenValues, pandora::CartesianVector &ShowerLength ) const;
+    pandora::CartesianVector ShowerLength( const pandora::CartesianVector& EigenValues ) const;
 
-    float OpeningAngle( const pandora::CartesianVector principal, const pandora::CartesianVector secondary, const pandora::CartesianVector EigenValues ) const;
+    float OpeningAngle( const pandora::CartesianVector& principal, const pandora::CartesianVector& secondary, const pandora::CartesianVector& EigenValues ) const;
 
     bool            m_cosmicMode;             ///<
 };
